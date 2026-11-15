@@ -13,8 +13,9 @@ a journal to resume from. You, the person the agent works for, read these docume
 UI and comment on selected text, much like reviewing a pull request. The agent then picks up
 your review and answers each comment.
 
-The server is one Go binary with an SQLite file and a built-in web UI. A Claude Code plugin
-(skills and a session hook) teaches agents how to use it.
+The server is one Go binary with an SQLite file and a built-in web UI. A plugin compatible
+with Claude Code and Codex provides the skills and session hook that teach agents how to use
+it.
 
 ## Concepts
 
@@ -106,6 +107,15 @@ token = <secret>
 
 ### 3. Connect Codex
 
+Install the plugin from this repository's marketplace:
+
+```sh
+codex plugin marketplace add https://github.com/svesh87/agent-tasks
+codex plugin add agent-tasks@agent-tasks
+```
+
+Connect the MCP server:
+
 ```toml
 # ~/.codex/config.toml
 [mcp_servers.agent-tasks]
@@ -114,15 +124,23 @@ bearer_token_env_var = "AGENT_TASKS_TOKEN"
 tool_timeout_sec = 330
 ```
 
-Codex reads the same skill format. Link the skills from a clone of this repository:
+The `SessionStart` hook uses the same config as Claude Code:
 
-```sh
-mkdir -p ~/.agents/skills
-for s in plan task review todo; do ln -sfn "$PWD/plugins/agent-tasks/skills/$s" ~/.agents/skills/$s; done
+```ini
+# ~/.config/agent-tasks/config
+url = http://localhost:8080
+token = <secret>
 ```
 
-The session hook works in Claude Code only. Under Codex, the `task` skill looks up the
-repository's tasks itself.
+Update the plugin and verify the installation with:
+
+```sh
+codex plugin marketplace upgrade agent-tasks
+codex plugin list
+```
+
+Start a new Codex session after installing or updating. Run `/hooks` to review and trust the
+plugin hook when Codex asks; its trust is tied to the current hook hash.
 
 ### Behind an auth proxy
 
@@ -206,8 +224,9 @@ in [CONTRACT.md](CONTRACT.md).
 
 ## Skills and the session hook
 
-This repository is a Claude Code plugin marketplace with one plugin, `agent-tasks`
-(`plugins/agent-tasks/`). The skills use only this server's MCP tools:
+This repository is a plugin marketplace compatible with Claude Code and Codex. It contains
+one plugin, `agent-tasks` (`plugins/agent-tasks/`). The skills use only this server's MCP
+tools:
 
 - `plan`: understand the task, ask, write the plan, revise it after your review, start work
   when you say go;
@@ -216,8 +235,9 @@ This repository is a Claude Code plugin marketplace with one plugin, `agent-task
 - `review`: collect your submitted round and answer every comment;
 - `todo`: record, list and close todos.
 
-The `SessionStart` hook runs when a session starts, resumes or is compacted, and prints the
-tasks and open todos of the current place. It reads `~/.config/agent-tasks/config` (`url`,
+The `SessionStart` hook runs in Claude Code and Codex when a session starts, resumes or is
+compacted, and prints the tasks and open todos of the current place. It reads
+`~/.config/agent-tasks/config` (`url`,
 `token`, `machine`, and any number of `header = Name: value` lines) or the environment
 (`AGENT_TASKS_URL`, `AGENT_TASKS_TOKEN`, `AGENT_TASKS_MACHINE`, `AGENT_TASKS_HEADERS`,
 `AGENT_TASKS_HEADERS_FILE`). The machine name defaults to the short host name; set it in

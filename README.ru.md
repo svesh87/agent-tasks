@@ -15,8 +15,8 @@ agent-tasks держит эту работу вне конкретного ре�
 каждый комментарий.
 
 Сервер устроен просто: один бинарник на Go, файл SQLite и встроенный веб-интерфейс. К нему
-прилагается плагин для Claude Code (скиллы и хук начала сессии), который учит агентов с ним
-работать.
+прилагается совместимый с Claude Code и Codex плагин: скиллы и хук начала сессии, которые
+учат агентов с ним работать.
 
 ## Основные понятия
 
@@ -109,6 +109,15 @@ token = <секрет>
 
 ### 3. Подключение Codex
 
+Установите плагин из маркетплейса этой репы:
+
+```sh
+codex plugin marketplace add https://github.com/svesh87/agent-tasks
+codex plugin add agent-tasks@agent-tasks
+```
+
+Подключите MCP-сервер:
+
 ```toml
 # ~/.codex/config.toml
 [mcp_servers.agent-tasks]
@@ -117,15 +126,23 @@ bearer_token_env_var = "AGENT_TASKS_TOKEN"
 tool_timeout_sec = 330
 ```
 
-Codex понимает тот же формат скиллов. Подключите их симлинками из клона этой репы:
+Хук `SessionStart` использует тот же конфиг, что и в Claude Code:
 
-```sh
-mkdir -p ~/.agents/skills
-for s in plan task review todo; do ln -sfn "$PWD/plugins/agent-tasks/skills/$s" ~/.agents/skills/$s; done
+```ini
+# ~/.config/agent-tasks/config
+url = http://localhost:8080
+token = <секрет>
 ```
 
-Хук начала сессии работает только в Claude Code. Под Codex скилл `task` сам находит задачи
-репозитория.
+Обновите плагин и проверьте установку:
+
+```sh
+codex plugin marketplace upgrade agent-tasks
+codex plugin list
+```
+
+После установки или обновления откройте новую сессию Codex. Выполните `/hooks`, проверьте хук
+плагина и доверьте его, когда Codex попросит: доверие привязано к текущему хешу хука.
 
 ### За прокси с авторизацией
 
@@ -208,8 +225,9 @@ header = CF-Access-Client-Secret: <секрет>
 
 ## Скиллы и хук начала сессии
 
-Эта репа служит маркетплейсом плагинов Claude Code с одним плагином `agent-tasks`
-(`plugins/agent-tasks/`). Скиллы пользуются только MCP-инструментами этого сервера:
+Эта репа служит совместимым с Claude Code и Codex маркетплейсом с одним плагином
+`agent-tasks` (`plugins/agent-tasks/`). Скиллы пользуются только MCP-инструментами этого
+сервера:
 
 - `plan`: разобраться в задаче, расспросить, написать план, доработать после ревью, начать по
   вашему «делай»;
@@ -218,8 +236,9 @@ header = CF-Access-Client-Secret: <секрет>
 - `review`: забрать отправленный раунд и ответить на каждый комментарий;
 - `todo`: записать, показать и закрыть дела.
 
-Хук `SessionStart` срабатывает при старте сессии, её продолжении и после сжатия контекста и
-выводит задачи и открытые дела текущего места. Настройки он берёт из
+Хук `SessionStart` работает в Claude Code и Codex: срабатывает при старте сессии, её
+продолжении и после сжатия контекста и выводит задачи и открытые дела текущего места.
+Настройки он берёт из
 `~/.config/agent-tasks/config` (`url`, `token`, `machine` и сколько угодно строк
 `header = Имя: значение`) или из окружения (`AGENT_TASKS_URL`, `AGENT_TASKS_TOKEN`,
 `AGENT_TASKS_MACHINE`, `AGENT_TASKS_HEADERS`, `AGENT_TASKS_HEADERS_FILE`). Имя машины по
