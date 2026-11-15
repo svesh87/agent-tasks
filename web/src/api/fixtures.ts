@@ -74,7 +74,7 @@ export interface FxTask {
 // ---------------------------------------------------------------- places and machines
 
 export const INFRA = 'github.com/acme/infra';
-export const AGENT_TASKS = 'github.com/svesh87/agent-tasks';
+export const AGENT_TASKS = 'github.com/acme/agent-tasks';
 export const DEVENV = 'github.com/acme/devenv';
 export const BILLING = 'gitlab.example.com/platform/billing';
 export const CI_TEMPLATES = 'gitlab.example.com/platform/ci-templates';
