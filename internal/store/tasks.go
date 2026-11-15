@@ -359,6 +359,8 @@ type DocSummary struct {
 	OpenComments   int    `json:"open_comments"`
 	ItemsDone      int    `json:"items_done"`
 	ItemsTotal     int    `json:"items_total"`
+	// Approved is the owner's approval of the latest revision, or null.
+	Approved *Approval `json:"approved"`
 }
 
 // Progress counts plan items in the latest revisions.
@@ -427,16 +429,22 @@ SELECT d.slug, d.kind, d.title, d.updated_at,
   (SELECT count(*) FROM plan_item_revisions pr JOIN plan_items pi ON pi.id = pr.item_id
      WHERE pr.revision_id = (SELECT id FROM revisions r WHERE r.document_id = d.id ORDER BY n DESC LIMIT 1) AND pi.done = 1),
   (SELECT count(*) FROM plan_item_revisions pr
-     WHERE pr.revision_id = (SELECT id FROM revisions r WHERE r.document_id = d.id ORDER BY n DESC LIMIT 1))
+     WHERE pr.revision_id = (SELECT id FROM revisions r WHERE r.document_id = d.id ORDER BY n DESC LIMIT 1)),
+  (SELECT max(a.created_at) FROM approvals a
+     WHERE a.revision_id = (SELECT id FROM revisions r WHERE r.document_id = d.id ORDER BY n DESC LIMIT 1) AND a.revoked_at IS NULL)
 FROM documents d WHERE d.task_id = ? ORDER BY d.created_at, d.id`, n)
 		if err != nil {
 			return err
 		}
 		for rows.Next() {
 			var d DocSummary
-			if err := rows.Scan(&d.Slug, &d.Kind, &d.Title, &d.UpdatedAt, &d.LatestRevision, &d.OpenComments, &d.ItemsDone, &d.ItemsTotal); err != nil {
+			var approvedAt sql.NullString
+			if err := rows.Scan(&d.Slug, &d.Kind, &d.Title, &d.UpdatedAt, &d.LatestRevision, &d.OpenComments, &d.ItemsDone, &d.ItemsTotal, &approvedAt); err != nil {
 				rows.Close()
 				return err
+			}
+			if approvedAt.Valid {
+				d.Approved = &Approval{Revision: d.LatestRevision, At: approvedAt.String, By: AuthorOwner}
 			}
 			o.Progress.Done += d.ItemsDone
 			o.Progress.Total += d.ItemsTotal

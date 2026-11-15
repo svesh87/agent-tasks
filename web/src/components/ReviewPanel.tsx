@@ -303,6 +303,69 @@ function DraftCard({ view, draft, active, onActivate }: {
   );
 }
 
+/**
+ * The owner's "go": approve the latest revision (with the draft's comments, if any), see
+ * that it is approved, withdraw it. An older revision only says whether it was approved.
+ */
+function ApprovalCard({ view, draft }: { view: DocumentView; draft: ReviewRound | undefined }) {
+  const { t, dateTime } = useI18n();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const n = view.revision.n;
+  const isLatest = n === view.latest;
+  if (!isLatest) {
+    if (!view.approved_revisions.includes(n)) return null;
+    return (
+      <p className="approval-past">
+        <Icon name="check" size={13} />
+        {t('ap.wasApproved', { n })}
+      </p>
+    );
+  }
+  const run = async (f: () => Promise<void>) => {
+    setBusy(true);
+    setError('');
+    try {
+      await f();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const comments = draft?.comments.length ?? 0;
+  if (view.approved) {
+    return (
+      <section className="approval-card approved" aria-label={t('ap.title')}>
+        <span className="approval-state">
+          <Icon name="check" size={14} />
+          {t('ap.approved', { n: view.approved.revision })}
+        </span>
+        <span className="muted small">{dateTime(view.approved.at)}</span>
+        <button type="button" className="link-btn" disabled={busy} onClick={() => run(() => api.revokeApproval(view.task.id, view.slug))}>
+          {t('ap.revoke')}
+        </button>
+        {error && <p className="notice notice-warn">{error}</p>}
+      </section>
+    );
+  }
+  return (
+    <section className="approval-card" aria-label={t('ap.title')}>
+      <button
+        type="button"
+        className="btn btn-approve"
+        disabled={busy}
+        title={t('ap.hint')}
+        onClick={() => run(() => api.approveDocument(view.task.id, view.slug, n, comments > 0))}
+      >
+        <Icon name="check" size={14} />
+        {comments > 0 ? t('ap.approveWith', { n, c: comments }) : t('ap.approve', { n })}
+      </button>
+      {error && <p className="notice notice-warn">{error}</p>}
+    </section>
+  );
+}
+
 function RoundBlock({ round, view, filter, active, onActivate, focus }: {
   round: ReviewRound;
   view: DocumentView;
@@ -377,6 +440,7 @@ export function ReviewPanel({ view, active, onActivate, focusRound }: {
   const visible = others.some((r) => r.comments.some((c) => filter === 'all' || c.state === 'open'));
   return (
     <div className="review-panel">
+      <ApprovalCard view={view} draft={draft} />
       {isLatest && <DraftCard view={view} draft={draft} active={active} onActivate={onActivate} />}
       {others.length > 0 && (
         <>

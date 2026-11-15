@@ -31,7 +31,8 @@ todos (`D-n text`). For older or archived work: `task_search(query, place, statu
 
 ## Take a task (T-n)
 
-1. `task_get(id, machine)`: documents, plan progress, last journal entries, pending rounds,
+1. `task_get(id, machine)`: documents (with `approved` when the owner approved the latest
+   revision, which is their go on it), plan progress, last journal entries, pending rounds,
    places with their paths on this machine, `workspace`.
 2. Read the latest `context` entries (`journal_get(task, kind: "context", limit: 3)`) and
    resume from them. Check them against the real state (git status, files, the live system)

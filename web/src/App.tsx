@@ -9,12 +9,13 @@ import { TaskList } from './screens/TaskList';
 import { TaskScreen } from './screens/TaskScreen';
 import { TodoList, TodoScreen } from './screens/Todos';
 import { useTheme } from './theme';
-import { FAKE } from './api';
+import { FAKE, useLive } from './api';
 
 function Header({ section }: { section: 'tasks' | 'todos' }) {
   const { t, lang, setLang } = useI18n();
   const [theme, cycleTheme] = useTheme();
   const themeIcon = theme === 'light' ? 'sun' : theme === 'dark' ? 'moon' : 'system';
+  const live = useLive();
   return (
     <header className="topbar">
       <a className="brand" href={href('/')} aria-label={t('app.name')}>
@@ -35,6 +36,11 @@ function Header({ section }: { section: 'tasks' | 'todos' }) {
         <span className="mock-flag" title={t('app.mockup')}>
           {t('app.mockup')}
         </span>
+      )}
+      {live === 'offline' && (
+        <button type="button" className="live-flag" title={t('live.offlineHint')} onClick={() => window.location.reload()}>
+          {t('live.offline')}
+        </button>
       )}
       <div className="topbar-actions">
         <button type="button" className="btn btn-ghost btn-sm" onClick={() => setLang(lang === 'en' ? 'ru' : 'en')} title={t('lang.switch')} aria-label={t('lang.switch')}>

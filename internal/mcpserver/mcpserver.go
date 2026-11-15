@@ -19,7 +19,7 @@ const Instructions = `agent-tasks keeps tasks that outlive one session or one re
 Usual flow:
 1. Find the task with task_search or task_get.
 2. Publish a plan with doc_write and send the owner the url it returns.
-3. Wait for the review with review_wait, or check once with review_pending.
+3. Wait for the review with review_wait, or check once with review_pending. The owner may approve the latest revision in the web UI ("approved" in review_wait, doc_get, task_get): that is their explicit go.
 4. Answer every comment with comment_reply (resolve: true when handled), write the next revision with doc_write, then call round_addressed.
 5. Tick plan items with plan_item_set; do not rewrite the document for that.
 6. Before the session ends, add a journal entry of kind "context" that says where the work stands.
@@ -354,7 +354,7 @@ func (s *Server) register(srv *mcp.Server) {
 		})
 
 	add(srv, "task_get", "Get task",
-		"Get a task with what you need to resume it: fields, url, workspace folder, places with their locations on every machine (pass machine to get here, the path on your machine), documents with latest revision, open comments and plan progress, overall plan progress, the last 10 journal entries, review rounds waiting for you, and the todos it was built from.",
+		"Get a task with what you need to resume it: fields, url, workspace folder, places with their locations on every machine (pass machine to get here, the path on your machine), documents with latest revision, open comments, plan progress and approved (the owner's approval of the latest revision, or null), overall plan progress, the last 10 journal entries, review rounds waiting for you, and the todos it was built from.",
 		true, nil,
 		func(ctx context.Context, in taskGetIn) (any, error) {
 			o, err := st.TaskOverview(ctx, in.ID, 10, false, strings.TrimSpace(in.Machine))
@@ -458,7 +458,7 @@ func (s *Server) register(srv *mcp.Server) {
 		})
 
 	add(srv, "doc_get", "Get document",
-		"Get a document revision (the latest by default): body, plan items, open comments of submitted rounds, and the revision list. An item's done state comes from the server, not from the box written in the body. Each comment has its quote, its line in the reviewed revision and its current position in the latest revision.",
+		"Get a document revision (the latest by default): body, plan items, open comments of submitted rounds, and the revision list. An item's done state comes from the server, not from the box written in the body. Each comment has its quote, its line in the reviewed revision and its current position in the latest revision. approved is the owner's approval of the latest revision (their explicit go on it), or null; a new revision removes it. approved_revisions lists revisions approved earlier.",
 		true, nil,
 		func(ctx context.Context, in docGetIn) (any, error) {
 			v, err := st.GetDoc(ctx, in.Task, in.Slug, store.DocGetOptions{Revision: in.Revision, OnlyOpen: true, WithRevisions: true})
@@ -475,6 +475,9 @@ func (s *Server) register(srv *mcp.Server) {
 				"items":         v.Items,
 				"open_comments": s.comments(v.Comments),
 				"revisions":     v.Revisions,
+				// the owner's go: approval of the latest revision, or null
+				"approved":           d.Approved,
+				"approved_revisions": v.ApprovedRevisions,
 			}, nil
 		})
 
@@ -503,7 +506,7 @@ func (s *Server) register(srv *mcp.Server) {
 		})
 
 	add(srv, "review_pending", "Pending reviews",
-		"Review rounds the owner has submitted and nobody has addressed yet, for one task or all. Each comment comes with id, state, body, replies, its anchor (quote and line in the reviewed revision; none for a general comment) and its current position in the latest revision. Answer each comment with comment_reply, write a new revision with doc_write if needed, then call round_addressed.",
+		"Review rounds the owner has submitted and nobody has addressed yet, for one task or all. Each comment comes with id, state, body, replies, its anchor (quote and line in the reviewed revision; none for a general comment) and its current position in the latest revision. Answer each comment with comment_reply, write a new revision with doc_write if needed, then call round_addressed. With task given, approvals lists the task's documents whose latest revision the owner approved (their explicit go).",
 		true, nil,
 		func(ctx context.Context, in reviewPendingIn) (any, error) {
 			rs, err := st.PendingRounds(ctx, in.Task)
@@ -514,7 +517,23 @@ func (s *Server) register(srv *mcp.Server) {
 			for i, r := range rs {
 				out[i] = s.round(r)
 			}
-			return map[string]any{"rounds": out}, nil
+			m := map[string]any{"rounds": out}
+			if in.Task != "" {
+				as, err := st.Approvals(ctx, in.Task)
+				if err != nil {
+					return nil, err
+				}
+				type approvalOut struct {
+					store.DocApproval
+					URL string `json:"url"`
+				}
+				ao := make([]approvalOut, len(as))
+				for i, a := range as {
+					ao[i] = approvalOut{a, s.Links.Revision(a.Task, a.Slug, a.Revision)}
+				}
+				m["approvals"] = ao
+			}
+			return m, nil
 		})
 
 	add(srv, "comment_reply", "Reply to comment",

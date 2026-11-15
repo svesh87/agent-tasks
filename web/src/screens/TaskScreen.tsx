@@ -207,6 +207,12 @@ function Documents({ d }: { d: TaskDetail }) {
                       {t('doc.openComments', { n: doc.open_comments })}
                     </span>
                   )}
+                  {doc.approved && (
+                    <span className="approved-badge" title={t('ap.approved', { n: doc.approved.revision })}>
+                      <Icon name="check" size={12} />
+                      {t('ap.badge')} r{doc.approved.revision}
+                    </span>
+                  )}
                   {doc.submitted_round && <span className="round-state round-submitted">{t('rv.state.submitted')}</span>}
                   {doc.draft_round && <span className="round-state round-draft">{t('rv.state.draft')}</span>}
                 </span>

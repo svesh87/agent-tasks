@@ -28,9 +28,9 @@ const TimeFormat = "2006-01-02T15:04:05.000000Z"
 // Store is the database handle. It is safe for concurrent use: all access
 // goes through one connection, one transaction at a time.
 type Store struct {
-	db     *sql.DB
-	Now    func() time.Time // replaceable in tests
-	rounds notifier         // wakes WaitRounds on submit
+	db      *sql.DB
+	Now     func() time.Time // replaceable in tests
+	changes notifier         // broadcast after every transaction that changed data
 }
 
 // Open opens (creating if needed) the database at path and applies pending
@@ -96,17 +96,37 @@ func (s *Store) migrate(ctx context.Context) error {
 
 func (s *Store) ts() string { return s.Now().UTC().Format(TimeFormat) }
 
-// tx runs fn in a transaction, committing when it returns nil.
+// tx runs fn in a transaction, committing when it returns nil. If the
+// transaction changed any rows, waiters on Changes are woken after the
+// commit. Every write of the store goes through here, so new write methods
+// are covered without extra code.
 func (s *Store) tx(ctx context.Context, fn func(tx *sql.Tx) error) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
+		return err
+	}
+	// total_changes() counts rows changed on this connection; the store
+	// uses a single connection, so the difference is this transaction's.
+	var before, after int64
+	if err := tx.QueryRowContext(ctx, `SELECT total_changes()`).Scan(&before); err != nil {
+		tx.Rollback()
 		return err
 	}
 	if err := fn(tx); err != nil {
 		tx.Rollback()
 		return err
 	}
-	return tx.Commit()
+	if err := tx.QueryRowContext(ctx, `SELECT total_changes()`).Scan(&after); err != nil {
+		tx.Rollback()
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	if after != before {
+		s.changes.broadcast()
+	}
+	return nil
 }
 
 // Error kinds. Messages are written for agents: they say what is wrong and

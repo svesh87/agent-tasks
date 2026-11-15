@@ -40,6 +40,11 @@ in a loop. It blocks until the owner submits a round and returns it like `review
 When its timeout passes it returns `{waiting: true}`; call it again, as many times as
 needed. Tell the owner in chat that you are waiting; they can interrupt you there.
 
+`review_wait` with `doc` also returns when the owner approves the latest revision: the result
+carries `approved` (`{revision, at}`), possibly together with rounds. Handle the rounds as
+above, then treat the approval as the owner's go (see the `plan` skill). The approval stays
+until a new revision is written, so do not call `review_wait` again just to see it.
+
 `timeout_s` defaults to 300 s, but the server may cap it lower (an auth proxy in front of
 the server often closes requests after about 90 s), and the MCP client has its own
 tool-call timeout. A short wait is fine because the loop makes up for it. If calls are cut
@@ -50,4 +55,5 @@ off, pass a smaller `timeout_s`.
 - Never skip a comment silently, and never resolve one you did not act on.
 - Comments that went `outdated` (their text is gone) still get a reply.
 - A review is feedback on the document. It does not by itself approve execution: wait for an
-  explicit "go" (see the `plan` skill).
+  explicit "go" — a "yes" in the chat or the owner's approval of the latest revision (see the
+  `plan` skill).

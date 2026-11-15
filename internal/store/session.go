@@ -52,8 +52,9 @@ type OtherPlace struct {
 // SessionTask is a task shown to an agent at session start.
 type SessionTask struct {
 	Task
-	PendingRounds []RoundBrief `json:"pending_rounds"`
-	OtherPlaces   []OtherPlace `json:"other_places"`
+	PendingRounds []RoundBrief  `json:"pending_rounds"`
+	OtherPlaces   []OtherPlace  `json:"other_places"`
+	Approvals     []DocApproval `json:"approvals"` // documents whose latest revision is approved
 }
 
 // SessionInfo is what the session hook shows.
@@ -123,6 +124,9 @@ func (s *Store) SessionContext(ctx context.Context, repo, cwd, machine string) (
 			}
 			var err error
 			if st.PendingRounds, err = roundBriefs(ctx, tx, t.num, "submitted"); err != nil {
+				return err
+			}
+			if st.Approvals, err = docApprovals(ctx, tx, `t.id = ?`, t.num); err != nil {
 				return err
 			}
 			info.Tasks = append(info.Tasks, st)

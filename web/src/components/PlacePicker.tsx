@@ -171,6 +171,7 @@ export function PlacePicker<P extends Place>({ places, value, onChange, multiple
                   role="option"
                   aria-selected={on}
                   className={`pp-opt${i === active ? ' active' : ''}${on ? ' on' : ''}${o.special ? ' special' : ''}`}
+                  title={o.sub && o.sub !== o.label ? o.sub : undefined}
                   onMouseEnter={() => setActive(i)}
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => pick(o)}

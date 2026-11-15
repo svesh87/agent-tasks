@@ -170,6 +170,14 @@ export interface DocumentSummary {
   open_comments: number;
   draft_round?: { n: number; comments: number };
   submitted_round?: { n: number; comments: number };
+  /** The owner's approval of the latest revision. */
+  approved?: Approval;
+}
+
+/** The owner's "go" on a revision; it counts while that revision is the latest. */
+export interface Approval {
+  revision: number;
+  at: string;
 }
 
 export interface JournalEntry {
@@ -251,6 +259,10 @@ export interface DocumentView {
   items: PlanItem[];
   /** All rounds of the document, newest first. */
   rounds: ReviewRound[];
+  /** Approval of the latest revision, if any. */
+  approved?: Approval;
+  /** Revisions approved at some point (history). */
+  approved_revisions: number[];
 }
 
 export interface DiffView {
@@ -342,6 +354,13 @@ export interface Api {
   writeDocument(task: string, slug: string, body: string, base: number, message?: string): Promise<{ n: number }>;
   /** A new revision by the owner with the body of revision `to`; ConflictError as for writeDocument. */
   revertDocument(task: string, slug: string, to: number, base: number): Promise<{ n: number }>;
+  /**
+   * The owner approves revision `revision` (must be the latest, else ConflictError). With
+   * `submitDraft`, a draft round with comments is submitted along with it.
+   */
+  approveDocument(task: string, slug: string, revision: number, submitDraft: boolean): Promise<void>;
+  /** Withdraws the approval of the latest revision. */
+  revokeApproval(task: string, slug: string): Promise<void>;
   /** Tick/untick a plan item and/or add a note, as the owner. */
   setItem(task: string, slug: string, item: string, change: { done?: boolean; note?: string }): Promise<void>;
   getDocument(task: string, slug: string, revision?: number): Promise<DocumentView>;

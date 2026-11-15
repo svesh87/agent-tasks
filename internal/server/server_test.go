@@ -189,6 +189,15 @@ func TestSessionContextHook(t *testing.T) {
 	if code != http.StatusOK {
 		t.Fatalf("code %d", code)
 	}
+
+	// The owner's approval shows on the task's line.
+	if _, err := st.Approve(ctx, task.ID, "plan", 1, false); err != nil {
+		t.Fatal(err)
+	}
+	_, body = get(t, url, auth)
+	if !strings.Contains(body, "T-1 [waiting: owner review, plan r1 approved] Сервер задач") {
+		t.Errorf("approval missing in:\n%s", body)
+	}
 }
 
 func TestWebAuthHeaderAndAPI(t *testing.T) {

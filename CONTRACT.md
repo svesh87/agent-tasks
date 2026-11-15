@@ -212,6 +212,40 @@ Details (v0.3.1):
   `task_update` take an optional `source` for the journal entries they write.
 - The session hook without `machine` finds the place by `repo` but registers no location.
 
+## Approval and live updates (v0.7)
+
+**Approval** — the owner's explicit "go" on a document revision, given in the web UI.
+- Belongs to a revision: `{revision, at, by: owner}`. It counts while that revision is the
+  document's latest; a new revision (by anyone) leaves the document unapproved. The older
+  revision keeps its mark in history.
+- The owner may withdraw it until a new revision appears.
+- Approving with a non-empty draft round submits the draft along with it ("approve with
+  comments"); a submitted, not addressed round does not block approval. The agent answers the
+  comments and starts the work unless they ask for a change of plan; a new revision removes
+  the approval as always.
+- Only the owner approves; agents have no tool for it.
+- Each approval and withdrawal adds a `decision` journal entry with `source: web`.
+
+MCP changes:
+- `doc_get`: `approved` (approval of the latest revision, or null) and `approved_revisions`
+  (revisions approved at some point).
+- `task_get`: each document carries `approved`.
+- `review_pending(task)`: with `task` given, `approvals` lists the task's documents whose latest
+  revision is approved, with links.
+- `review_wait(task, doc)`: also returns when the latest revision of that document is approved,
+  with `approved` and the revision `url` (rounds pending at the same time come along). Only when
+  `doc` is given. An approval is not consumed: waiting again returns it again until a new
+  revision is written.
+- The session hook endpoint shows `<slug> r<n> approved` on a task's line.
+
+Skills: the owner's "go" on a plan is the approval of its latest revision in the web UI or an
+explicit "yes" in the chat.
+
+**Live updates.** An open page shows changes made elsewhere (an agent through MCP, another tab
+or device) without a reload. The web UI listens to `GET /api/events` (Server-Sent Events behind
+the same auth proxy): `event: change` after every committed change, a keep-alive comment every
+25 s; the page re-reads what it shows. Internal to this repository's UI, not used by agents.
+
 ## Owner feedback, round 2 (v0.6)
 
 - **Search jumps to the hit.** Every search result says what matched (`kind: task | document |
@@ -291,3 +325,5 @@ Details (v0.3.1):
   machines' paths, open place list.
 - v0.6.1 (2026-11-15): "owner" defined; tags are free strings; session hook without a remote,
   with `machine`, todos and proxy headers; `quote` is markdown source.
+- v0.7 (2026-11-15): the owner's approval of a revision (web, MCP, review_wait, session hook);
+  live updates of the web UI.

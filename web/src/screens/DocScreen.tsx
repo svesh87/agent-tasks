@@ -139,6 +139,12 @@ function DocHeader({ view, onEdit, onRevert }: { view: DocumentView; onEdit?: ()
           <AuthorBadge author={r.author} /> <Time iso={r.created_at} />
         </span>
         {view.items.length > 0 && <Progress done={done} total={view.items.length} />}
+        {view.approved_revisions.includes(r.n) && (
+          <span className="approved-badge" title={r.n === view.latest ? t('ap.approved', { n: r.n }) : t('ap.wasApproved', { n: r.n })}>
+            <Icon name="check" size={12} />
+            {t('ap.badge')}
+          </span>
+        )}
         {r.n > 1 && (
           <a className="btn btn-sm btn-ghost" href={href(paths.diff(view.task.id, view.slug, r.n - 1, r.n))}>
             <Icon name="diff" size={14} />
@@ -211,7 +217,7 @@ function Rail({ view, tab, setTab, active, onActivate, onClose, focusRound, onRe
         {tab === 'review' ? (
           <ReviewPanel view={view} active={active} onActivate={onActivate} focusRound={focusRound} />
         ) : (
-          <HistoryPanel taskId={view.task.id} slug={view.slug} revisions={view.revisions} rounds={view.rounds} current={view.revision.n} onRevert={onRevert} />
+          <HistoryPanel taskId={view.task.id} slug={view.slug} revisions={view.revisions} rounds={view.rounds} current={view.revision.n} onRevert={onRevert} approved={view.approved_revisions} />
         )}
       </div>
     </div>

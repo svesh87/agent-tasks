@@ -91,6 +91,13 @@ POST   /api/tasks/{id}/docs/{slug}/revert            {to, base_revision?}  → w
                                                       r<to>, author owner, message "revert to r<to>", usual item matching and
                                                       re-anchoring; 409 on stale base_revision; unchanged: true (no new revision)
                                                       when r<to> equals the latest; 404 if r<to> does not exist
+POST   /api/tasks/{id}/docs/{slug}/approve           {revision, submit_draft?}  → {document, approval, round?}: the owner approves
+                                                      the latest revision (409 if `revision` is not the latest); submit_draft
+                                                      first submits a draft round that has comments ("approve with comments");
+                                                      approving again changes nothing; a decision entry goes to the journal
+DELETE /api/tasks/{id}/docs/{slug}/approve           → {document}: withdraw the approval of the latest revision (409 if none)
+GET    /api/events                                   Server-Sent Events: `event: change` (data {}) after every committed change,
+                                                      whoever made it; a `: ping` comment every 25 s; the page re-reads what it shows
 GET    /api/tasks/{id}/docs/{slug}/revisions
 GET    /api/tasks/{id}/docs/{slug}/diff?from=&to=    {unified, hunks[{old_start, old_lines, new_start, new_lines, lines[{op, old_n, new_n, text}]}]}
 POST   /api/tasks/{id}/docs/{slug}/items/{item}      {done?, note?}  → item; the owner's tick/note: done_by and notes[].by = "owner"

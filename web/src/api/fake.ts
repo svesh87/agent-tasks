@@ -8,6 +8,7 @@ import { absolute, paths } from '../router';
 import { ConflictError } from './types';
 import type {
   Api,
+  Approval,
   Comment,
   DiffView,
   DocKind,
@@ -54,6 +55,8 @@ interface DocRec {
   revisions: Revision[];
   items: ItemRec[];
   rounds: ReviewRound[];
+  /** Live approvals by revision n (history; only the latest revision's counts). */
+  approvals?: Map<number, string>;
 }
 interface TaskRec {
   task: Task;
@@ -261,7 +264,14 @@ function summarize(d: DocRec): DocumentSummary {
     open_comments: d.rounds.filter((r) => r.state !== 'draft').flatMap((r) => r.comments).filter((c) => c.state === 'open').length,
     draft_round: draft && { n: draft.n, comments: draft.comments.length },
     submitted_round: submitted && { n: submitted.n, comments: submitted.comments.length },
+    approved: approvalOf(d),
   };
+}
+
+function approvalOf(d: DocRec): Approval | undefined {
+  const n = d.revisions.length;
+  const at = d.approvals?.get(n);
+  return at ? { revision: n, at } : undefined;
 }
 
 /** Task with place locations narrowed to one machine (as `GET /api/tasks/{id}?machine=`). */
@@ -635,7 +645,37 @@ export const fakeApi: Api = {
       revisions: d.revisions.map(({ body: _b, ...m }) => m).reverse(),
       items: itemsFor(d, n),
       rounds: [...d.rounds].reverse(),
+      approved: approvalOf(d),
+      approved_revisions: [...(d.approvals?.keys() ?? [])].sort((a, b) => a - b),
     });
+  },
+
+  async approveDocument(taskId, slug, revision, submitDraft) {
+    const t = findTask(taskId);
+    const d = t && findDoc(t, slug);
+    if (!t || !d) return fail(`document ${taskId}/${slug} not found`);
+    const latest = d.revisions.length;
+    if (revision !== latest) throw new ConflictError(`revision ${latest} appeared; read it before approving`, latest);
+    const draft = d.rounds.find((r) => r.state === 'draft');
+    if (submitDraft && draft && draft.comments.length) await fakeApi.submitRound(draft.id);
+    d.approvals ??= new Map();
+    if (!d.approvals.has(latest)) {
+      d.approvals.set(latest, now());
+      t.journal.push({ id: Date.now(), kind: 'decision', body: `Owner approved ${slug} r${latest} in the web UI.`, source: 'web', created_at: now() });
+    }
+    touch(t);
+    return reply(undefined);
+  },
+
+  revokeApproval(taskId, slug) {
+    const t = findTask(taskId);
+    const d = t && findDoc(t, slug);
+    if (!t || !d) return fail(`document ${taskId}/${slug} not found`);
+    if (!approvalOf(d)) return fail('the latest revision is not approved');
+    d.approvals!.delete(d.revisions.length);
+    t.journal.push({ id: Date.now(), kind: 'decision', body: `Owner withdrew the approval of ${slug} r${d.revisions.length}.`, source: 'web', created_at: now() });
+    touch(t);
+    return reply(undefined);
   },
 
   getDiff(taskId: string, slug: string, from: number, to: number): Promise<DiffView> {

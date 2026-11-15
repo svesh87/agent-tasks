@@ -122,11 +122,24 @@ export function Markdown({ body, items, anchors, onItem, className }: Props) {
   );
 }
 
-/** Short markdown (comments, replies, journal, notes) without block chrome. */
+/**
+ * Turns off block syntax for one-line texts: "1. Server: …" stays text with its number
+ * instead of becoming a list (whose <li> took the plan rows' flex layout and split the line
+ * into columns); "# x", "> x", "---" and indented lines stay text too.
+ */
+function remarkInlineOnly(this: { data(): object }) {
+  const data = this.data() as { micromarkExtensions?: unknown[] };
+  const exts = (data.micromarkExtensions ??= []);
+  exts.push({
+    disable: { null: ['list', 'headingAtx', 'setextUnderline', 'blockQuote', 'codeIndented', 'codeFenced', 'thematicBreak', 'htmlFlow', 'definition'] },
+  });
+}
+
+/** Short one-line markdown (plan items, item notes, todo texts): inline syntax only. */
 export function InlineMarkdown({ text }: { text: string }): ReactNode {
   return (
     <ReactMarkdown
-      remarkPlugins={[remarkGfm]}
+      remarkPlugins={[remarkGfm, remarkInlineOnly]}
       components={{
         a: ({ node: _n, ...p }) => <a {...p} target="_blank" rel="noreferrer noopener" />,
         p: ({ node: _n, ...p }) => <span className="p" {...p} />,

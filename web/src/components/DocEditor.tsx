@@ -20,7 +20,16 @@ export function DocEditor({ view, onClose }: { view: DocumentView; onClose: (sav
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const area = useRef<HTMLTextAreaElement>(null);
-  const dirty = body !== view.revision.body;
+  // Compare with the text the edit started from: `view` follows live updates, so a revision
+  // written meanwhile must not make an untouched editor look edited.
+  const [original] = useState(view.revision.body);
+  const dirty = body !== original;
+
+  // A revision written while the owner edits (live updates) shows the conflict notice at once,
+  // instead of only on save.
+  useEffect(() => {
+    if (view.latest > base) setConflict(view.latest);
+  }, [view.latest, base]);
 
   // Grow the textarea with its content, so the page scrolls, not a small box.
   useEffect(() => {

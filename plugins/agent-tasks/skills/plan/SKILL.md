@@ -57,7 +57,8 @@ connected, say so and ask the owner how to proceed instead of improvising storag
 - `task_update(status: waiting, waiting_on: "owner review")` and a `context` journal entry.
 - Then wait for the review. If you have nothing else to do, call `review_wait(task, doc:
   "plan")` in a loop: it returns the submitted round, or `{waiting: true}` when its timeout
-  passes, and then you call it again. Say in chat that you are waiting; the owner can stop you
+  passes, and then you call it again; it also returns when the owner approves the latest
+  revision (`approved`). Say in chat that you are waiting; the owner can stop you
   there at any time. If you have other useful work, do it and check `review_pending` later
   instead. See the `review` skill for timeouts.
 
@@ -68,6 +69,13 @@ connected, say so and ask the owner how to proceed instead of improvising storag
   next revision, mark the round addressed, send the link and the diff link again.
 - Repeat until the owner explicitly says to go. A question is not approval. The owner's "no"
   holds until they come back to it themselves.
+- "Go" is either an explicit "yes" in the chat or the owner's **approval** of the latest
+  revision in the web UI: `review_wait(task, doc)` returns `approved`, and `doc_get` /
+  `task_get` show `approved` on the document (the session hook shows `plan r<n> approved`).
+  An approval counts only for the revision it names; writing a new revision removes it.
+- An approval may arrive together with a round ("approve with comments"). Answer the comments
+  first. If they only refine details, start the work without a new revision. If they change
+  the plan, write the new revision, tell the owner, and wait for a new go.
 
 ## 5. Execute
 

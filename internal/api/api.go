@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/svesh87/agent-tasks/internal/anchor"
 	"github.com/svesh87/agent-tasks/internal/links"
@@ -22,13 +23,15 @@ type API struct {
 	Links         links.Links
 	WorkspaceRoot string
 	Version       string
-	UserHeader    string // header naming the signed-in user, e.g. Cf-Access-Authenticated-User-Email
+	UserHeader    string        // header naming the signed-in user, e.g. Cf-Access-Authenticated-User-Email
+	PingEvery     time.Duration // keep-alive comment on /api/events; 0 = 25 s
 }
 
 // Handler returns the router. Paths are relative to the server root.
 func (a *API) Handler() http.Handler {
 	m := http.NewServeMux()
 	m.HandleFunc("GET /api/config", a.config)
+	m.HandleFunc("GET /api/events", a.events)
 	m.HandleFunc("GET /api/tags", a.tags)
 	m.HandleFunc("GET /api/tasks", a.searchTasks)
 	m.HandleFunc("POST /api/tasks", a.createTask)
@@ -41,6 +44,8 @@ func (a *API) Handler() http.Handler {
 	m.HandleFunc("GET /api/tasks/{id}/docs/{slug}", a.getDoc)
 	m.HandleFunc("PUT /api/tasks/{id}/docs/{slug}", a.writeDoc)
 	m.HandleFunc("POST /api/tasks/{id}/docs/{slug}/revert", a.revertDoc)
+	m.HandleFunc("POST /api/tasks/{id}/docs/{slug}/approve", a.approve)
+	m.HandleFunc("DELETE /api/tasks/{id}/docs/{slug}/approve", a.revoke)
 	m.HandleFunc("GET /api/tasks/{id}/docs/{slug}/revisions", a.revisions)
 	m.HandleFunc("GET /api/tasks/{id}/docs/{slug}/diff", a.diff)
 	m.HandleFunc("POST /api/tasks/{id}/docs/{slug}/items/{item}", a.setItem)
@@ -471,6 +476,35 @@ func (a *API) draftRound(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, rd)
+}
+
+// POST .../approve {revision, submit_draft?}: the owner approves the latest
+// revision (409 when the document moved on); submit_draft sends a draft
+// round with comments along with it.
+func (a *API) approve(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		Revision    int  `json:"revision"`
+		SubmitDraft bool `json:"submit_draft"`
+	}
+	if !decode(w, r, &in) {
+		return
+	}
+	res, err := a.Store.Approve(r.Context(), r.PathValue("id"), r.PathValue("slug"), in.Revision, in.SubmitDraft)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, res)
+}
+
+// DELETE .../approve: withdraw the approval of the latest revision.
+func (a *API) revoke(w http.ResponseWriter, r *http.Request) {
+	d, err := a.Store.Revoke(r.Context(), r.PathValue("id"), r.PathValue("slug"))
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"document": d})
 }
 
 func (a *API) pendingRounds(w http.ResponseWriter, r *http.Request) {

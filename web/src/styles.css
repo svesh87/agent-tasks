@@ -468,6 +468,17 @@ select:focus {
   font-size: 11.5px;
   white-space: nowrap;
 }
+.live-flag {
+  padding: 1px 8px;
+  border: 1px solid currentColor;
+  border-radius: 10px;
+  background: var(--st-waiting-bg);
+  color: var(--st-waiting);
+  font: inherit;
+  font-size: 11.5px;
+  white-space: nowrap;
+  cursor: pointer;
+}
 .topbar-actions {
   margin-left: auto;
   display: flex;
@@ -1316,15 +1327,16 @@ a.tag {
   justify-content: flex-end;
   gap: 6px 12px;
 }
-.plan-items li {
+/* `>`: only the item rows; markup inside an item (notes, text) keeps its own layout */
+.plan-items > li {
   display: flex;
   gap: 10px;
   padding: 5px 0;
 }
-.plan-items li + li {
+.plan-items > li + li {
   border-top: 1px dashed var(--border);
 }
-.plan-items li.done .plan-text {
+.plan-items > li.done .plan-text {
   color: var(--muted);
 }
 .plan-note {
@@ -1617,7 +1629,7 @@ a.tag {
   user-select: none;
 }
 .task-item,
-.plan-items li {
+.plan-items > li {
   position: relative;
 }
 .add-note {
@@ -1636,7 +1648,7 @@ a.tag {
   padding-right: 72px;
 }
 .task-item:hover .add-note,
-.plan-items li:hover .add-note,
+.plan-items > li:hover .add-note,
 .add-note:focus-visible {
   opacity: 1;
 }
@@ -1813,20 +1825,55 @@ a.tag {
   margin-top: 4px;
   box-shadow: var(--shadow);
 }
-/* filters: the list is always open, search box on top */
+/* filters in a side panel: a plain panel block like "Status" and "Tags" — a search field on
+   top, rows below with the same look as .tag-facet; no frame, shadow or popup surface */
 .pp-block .pp-pop.pp-inline {
   margin-top: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
   box-shadow: none;
+  overflow: visible;
+}
+.pp-inline .pp-search {
+  height: 28px;
+  margin-bottom: 4px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+.pp-inline .pp-search:focus-within {
+  border-color: var(--accent);
+}
+.pp-inline .pp-search input {
+  padding: 0;
+  font-size: 13px;
 }
 .pp-inline .pp-list {
   max-height: 248px;
-}
-.pp-inline .pp-search input {
-  padding: 7px 0;
-  font-size: 13px;
+  padding: 0;
 }
 .pp-inline .pp-opt {
+  gap: 8px;
   padding: 4px 6px;
+}
+.pp-inline .pp-opt.active {
+  background: none;
+}
+.pp-inline .pp-opt:hover,
+.pp-inline:focus-within .pp-opt.active {
+  background: var(--surface-2);
+}
+.pp-inline .pp-key {
+  display: none;
+}
+.pp-inline .pp-name {
+  color: var(--text-2);
+}
+.pp-inline .pp-opt.on .pp-name {
+  color: var(--text);
+  font-weight: 550;
 }
 .pp-opt.on .pp-name {
   font-weight: 600;
@@ -2436,6 +2483,62 @@ a.tag {
   padding: 12px;
 }
 
+.approval-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin-bottom: 12px;
+}
+.approval-card.approved {
+  padding: 8px 12px;
+  border: 1px solid color-mix(in srgb, var(--ok) 40%, transparent);
+  border-radius: var(--radius);
+  background: var(--st-active-bg);
+}
+.approval-card .notice {
+  flex-basis: 100%;
+  margin: 0;
+}
+.approval-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--ok);
+  font-weight: 600;
+}
+.approval-card .link-btn {
+  margin-left: auto;
+}
+.btn-approve {
+  width: 100%;
+  justify-content: center;
+  border-color: var(--ok);
+  background: var(--ok);
+  color: #fff;
+}
+.btn-approve:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--ok) 85%, #000);
+}
+.approval-past {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0 0 12px;
+  color: var(--ok);
+  font-size: 13px;
+}
+.approved-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 7px;
+  border-radius: 10px;
+  background: var(--st-active-bg);
+  color: var(--ok);
+  font-size: 12px;
+  white-space: nowrap;
+}
 .draft-card {
   padding: 12px;
   border: 1px solid rgba(59, 125, 221, 0.35);

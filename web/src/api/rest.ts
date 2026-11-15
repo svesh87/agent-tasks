@@ -11,6 +11,7 @@ import type {
   SearchHit,
   Anchor,
   Api,
+  Approval,
   By,
   Comment,
   DiffView,
@@ -112,6 +113,7 @@ interface ApiDocSummary {
   open_comments: number;
   items_done: number;
   items_total: number;
+  approved?: Approval | null;
 }
 interface ApiRoundBrief {
   round: number;
@@ -178,12 +180,13 @@ interface ApiRound {
   addressed_revision?: number;
 }
 interface ApiDocView {
-  document: { task: string; slug: string; kind: DocumentView['kind']; title: string; latest_revision: number };
+  document: { task: string; slug: string; kind: DocumentView['kind']; title: string; latest_revision: number; approved?: Approval | null };
   revision: Revision;
   items: ApiItem[] | null;
   comments: ApiComment[] | null;
   revisions: Revision[] | null;
   rounds: ApiRound[] | null;
+  approved_revisions?: number[] | null;
 }
 
 // ---------------------------------------------------------------- mapping
@@ -333,6 +336,8 @@ function mapDocView(v: ApiDocView, task: Task, extraBodies: Revision[] = []): Do
     revisions: (v.revisions ?? []).map(meta).sort((a, b) => b.n - a.n),
     items: (v.items ?? []).map(mapItem),
     rounds: mapRounds(v.rounds ?? [], comments),
+    approved: v.document.approved ?? undefined,
+    approved_revisions: v.approved_revisions ?? [],
   };
 }
 
@@ -401,6 +406,7 @@ export const restApi: Api = {
         open_comments: d.open_comments,
         draft_round: draft && { n: draft.n, comments: draft.comments },
         submitted_round: sub && { n: sub.n, comments: sub.comments },
+        approved: d.approved ?? undefined,
       };
     });
     const planDoc = docs.find((d) => d.kind === 'plan' && d.items_total) ?? docs.find((d) => d.items_total);
@@ -502,6 +508,17 @@ export const restApi: Api = {
     return withConflict(task, slug, base, () =>
       call<{ revision: number }>('POST', `/api/tasks/${enc(task)}/docs/${enc(slug)}/revert`, { to, base_revision: base }),
     );
+  },
+
+  async approveDocument(task, slug, revision, submitDraft) {
+    await withConflict(task, slug, revision, async () => {
+      await call('POST', `/api/tasks/${enc(task)}/docs/${enc(slug)}/approve`, { revision, submit_draft: submitDraft });
+      return { revision };
+    });
+  },
+
+  async revokeApproval(task, slug) {
+    await call('DELETE', `/api/tasks/${enc(task)}/docs/${enc(slug)}/approve`);
   },
 
   async setItem(task, slug, item, change) {

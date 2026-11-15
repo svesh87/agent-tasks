@@ -12,8 +12,11 @@ export function HistoryPanel({
   rounds,
   current,
   onRevert,
+  approved,
 }: {
   onRevert?: (n: number) => void;
+  /** Revisions the owner approved. */
+  approved?: number[];
   taskId: string;
   slug: string;
   /** Newest first. */
@@ -75,6 +78,12 @@ export function HistoryPanel({
                 <Time iso={r.created_at} />
                 {r.n === latest && <span className="chip">{t('doc.latest')}</span>}
                 {r.n === current && <span className="chip chip-accent">{t('hist.current')}</span>}
+                {approved?.includes(r.n) && (
+                  <span className="approved-badge">
+                    <Icon name="check" size={12} />
+                    {t('ap.badge')}
+                  </span>
+                )}
               </div>
               {r.message && <p className="rev-msg">{r.message}</p>}
               <div className="rev-actions">

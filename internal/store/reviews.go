@@ -391,10 +391,7 @@ func (s *Store) SubmitRound(ctx context.Context, roundID int64) (Round, error) {
 		out, err = getRound(ctx, tx, roundID)
 		return err
 	})
-	if err == nil {
-		s.rounds.broadcast() // wake review_wait callers after the commit
-	}
-	return out, err
+	return out, err // the commit wakes review_wait callers (Store.tx)
 }
 
 // NewComment holds a comment to add to a draft round. Anchor nil means a

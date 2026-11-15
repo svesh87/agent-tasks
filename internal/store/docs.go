@@ -35,6 +35,9 @@ type Document struct {
 	LatestRevision int    `json:"latest_revision"`
 	CreatedAt      string `json:"created_at"`
 	UpdatedAt      string `json:"updated_at"`
+	// Approved is the owner's approval of the latest revision; null when the
+	// latest revision is not approved.
+	Approved *Approval `json:"approved"`
 
 	id      int64
 	taskNum int64
@@ -106,6 +109,10 @@ FROM documents d WHERE d.task_id = ? AND d.slug = ?`, taskNum, slug).
 		}
 		return Document{}, notFound("document %q not found in task %s", slug, TaskID(taskNum))
 	}
+	if err != nil {
+		return Document{}, err
+	}
+	d.Approved, err = latestApproval(ctx, q, d)
 	return d, err
 }
 
@@ -256,6 +263,7 @@ func (s *Store) WriteDoc(ctx context.Context, p WriteDocParams) (WriteResult, er
 		}
 		d.LatestRevision = newN
 		d.UpdatedAt = now
+		d.Approved = nil // a new revision is not approved yet
 		res.Document = d
 		res.Revision = newN
 		res.Items, err = revisionItems(ctx, tx, revID)
@@ -451,6 +459,9 @@ type DocView struct {
 	Comments  []Comment  `json:"comments"`
 	Revisions []Revision `json:"revisions,omitempty"`
 	Rounds    []Round    `json:"rounds,omitempty"`
+	// ApprovedRevisions lists revisions the owner approved (history; only
+	// the latest revision's approval counts, see Document.Approved).
+	ApprovedRevisions []int `json:"approved_revisions"`
 }
 
 // DocGetOptions select what GetDoc returns.
@@ -480,6 +491,9 @@ func (s *Store) GetDoc(ctx context.Context, task, slug string, o DocGetOptions) 
 		}
 		v.Document, v.Revision = d, r
 		if v.Items, err = revisionItems(ctx, tx, r.id); err != nil {
+			return err
+		}
+		if v.ApprovedRevisions, err = approvedRevisions(ctx, tx, d.id); err != nil {
 			return err
 		}
 		where := `rr.document_id = ?`

@@ -37,6 +37,7 @@ type Config struct {
 	WebDir        string        // serve the UI from this directory instead of the embedded files
 	RetentionDays int           // 0 disables the retention job
 	ReviewWaitMax time.Duration // cap of review_wait's timeout_s; 0 = 900 s
+	EventPing     time.Duration // keep-alive on the web event stream; 0 = 25 s
 	Version       string
 	Logger        *slog.Logger
 }
@@ -70,7 +71,7 @@ func (s *Server) Handler() http.Handler {
 		// stops the tool handler
 		PropagateRequestCancellation: true,
 	})
-	apiHandler := (&api.API{Store: s.store, Links: s.links, WorkspaceRoot: s.cfg.WorkspaceRoot, Version: s.cfg.Version, UserHeader: s.cfg.WebAuthHeader}).Handler()
+	apiHandler := (&api.API{Store: s.store, Links: s.links, WorkspaceRoot: s.cfg.WorkspaceRoot, Version: s.cfg.Version, UserHeader: s.cfg.WebAuthHeader, PingEvery: s.cfg.EventPing}).Handler()
 
 	m := http.NewServeMux()
 	m.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) { fmt.Fprintln(w, "ok") })
@@ -193,6 +194,9 @@ func (s *Server) sessionContext(w http.ResponseWriter, r *http.Request) {
 		}
 		if t.Status == "archived" {
 			status += ", " + t.ClosedReason
+		}
+		for _, a := range t.Approvals {
+			status += fmt.Sprintf(", %s r%d approved", a.Slug, a.Revision)
 		}
 		fmt.Fprintf(&b, "- %s [%s] %s — %s\n", t.ID, status, t.Title, s.links.Task(t.ID))
 		fmt.Fprintf(&b, "  workspace: %s/%s\n", strings.TrimRight(s.cfg.WorkspaceRoot, "/"), t.ID)
