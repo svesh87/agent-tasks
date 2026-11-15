@@ -1,0 +1,28 @@
+# Build outputs
+/dist/
+/agent-tasks
+/agent-tasks-*
+node_modules/
+web/dist/
+web/dist-single/
+# The UI built into the embed directory (release/Docker builds); keep the placeholder
+/internal/webui/dist/*
+!/internal/webui/dist/index.html
+
+# Local databases and exports
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+/export/
+
+# Secrets and local config
+.env
+.env.*
+*tokens*.txt
+
+# Editors and OS
+.idea/
+.vscode/
+.DS_Store

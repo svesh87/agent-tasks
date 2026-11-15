@@ -1,0 +1,117 @@
+# Tests on every pull request and push. On a push to main the image goes to
+# ghcr.io/<owner>/agent-tasks with tags YYYY.MM.DD-<run number> and
+# sha-<short sha>. On a tag v* the binaries for linux and darwin (amd64,
+# arm64), with the web UI embedded, are attached to a GitHub release.
+# Actions are pinned by commit, with the version in a comment.
+name: ci
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  IMAGE: ghcr.io/${{ github.repository }}
+  GO_IMAGE: golang:1.27.2-alpine3.24
+  NODE_IMAGE: node:24.22.1-alpine3.24
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    container: golang:1.27.2-alpine3.24
+    env:
+      CGO_ENABLED: "0"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: gofmt
+        run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
+      - name: vet
+        run: go vet ./...
+      - name: test
+        run: go test ./...
+
+  image:
+    runs-on: ubuntu-24.04
+    needs: test
+    if: github.event_name != 'push' || !startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Tags
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=raw,value={{date 'YYYY.MM.DD'}}-${{ github.run_number }}
+            type=sha,prefix=sha-,format=short
+
+      - name: Log in to GHCR
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Pull requests only build; main pushes.
+      - name: Build and push
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          build-args: VERSION=${{ steps.meta.outputs.version }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  release:
+    runs-on: ubuntu-24.04
+    needs: test
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Build the web UI into the embed directory
+        run: |
+          docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD/web":/web -w /web "$NODE_IMAGE" \
+            sh -c 'npm ci --no-audit --no-fund && npm run build'
+          cp -r web/dist/. internal/webui/dist/
+
+      - name: Build binaries
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          mkdir -p dist
+          for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64; do
+            os=${target%/*}; arch=${target#*/}
+            out="agent-tasks_${VERSION}_${os}_${arch}"
+            docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -e GOPATH=/tmp/go -e GOCACHE=/tmp/gocache \
+              -v "$PWD":/src -w /src -e CGO_ENABLED=0 -e GOOS="$os" -e GOARCH="$arch" -e GOFLAGS=-buildvcs=false \
+              "$GO_IMAGE" go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o "dist/$out/agent-tasks" ./cmd/agent-tasks
+            cp LICENSE README.md "dist/$out/"
+            tar -C dist -czf "dist/$out.tar.gz" "$out"
+          done
+          (cd dist && sha256sum ./*.tar.gz > SHA256SUMS)
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release create "${{ github.ref_name }}" dist/*.tar.gz dist/SHA256SUMS --generate-notes --verify-tag

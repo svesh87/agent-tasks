@@ -1,0 +1,10 @@
+{
+  "name": "agent-tasks",
+  "version": "0.1.0",
+  "description": "Plan with the owner's review, keep tasks, todos and context on an agent-tasks server (MCP). Skills: plan, task, review, todo. SessionStart hook: tasks of the current repository.",
+  "author": {
+    "name": "agent-tasks contributors"
+  },
+  "license": "MIT",
+  "keywords": ["tasks", "planning", "review", "mcp"]
+}

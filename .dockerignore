@@ -1,0 +1,15 @@
+.git
+.github
+**/node_modules
+web/dist
+web/dist-single
+/dist
+/export
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+.env
+.env.*
+*tokens*.txt

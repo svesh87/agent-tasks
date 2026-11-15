@@ -1,0 +1,17 @@
+{
+  "description": "agent-tasks: show the tasks and open todos of the current repository at session start and after compaction",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/session-context.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

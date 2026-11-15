@@ -1,0 +1,14 @@
+{
+  "name": "agent-tasks",
+  "description": "Skills and a session hook for working with an agent-tasks server",
+  "owner": {
+    "name": "agent-tasks contributors"
+  },
+  "plugins": [
+    {
+      "name": "agent-tasks",
+      "source": "./plugins/agent-tasks",
+      "description": "Plan with the owner's review, keep tasks, todos and context on an agent-tasks server"
+    }
+  ]
+}
