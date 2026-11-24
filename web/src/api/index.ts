@@ -175,8 +175,14 @@ function startLive() {
     };
   };
 
+  // A hidden tab gives its stream back. Over plain HTTP/1.1 a browser keeps at most six
+  // connections per host, so six tabs holding a stream leave a seventh stuck on "loading".
   const onVisible = () => {
-    if (document.visibilityState !== 'visible') return;
+    if (document.visibilityState !== 'visible') {
+      clearTimeout(timer);
+      es?.close();
+      return;
+    }
     if (!es || es.readyState === EventSource.CLOSED) {
       failures = 0;
       connect();
@@ -186,7 +192,8 @@ function startLive() {
   };
   document.addEventListener('visibilitychange', onVisible);
   window.addEventListener('online', onVisible);
-  connect();
+  if (document.visibilityState === 'visible') connect();
+  else opened = true; // opened in the background: refetch once the stream opens
 }
 
 if (!FAKE && typeof EventSource !== 'undefined') startLive();
